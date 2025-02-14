@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>KIWI Voice Assistant</title>
+    <!-- Add Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- Add Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Importing the Google Fonts */
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+        /* Defining custom font for the page */
+        body {
+            font-family: 'Roboto', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f2f5;
+        }
+
+        /* Adding animation for the waves */
+        @keyframes wave {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(2);
+                opacity: 0;
+            }
+        }
+
+        .wave {
+            position: absolute;
+            border-radius: 50%;
+            animation: wave 2s infinite;
+            border: 2px solid #38a169;
+            width: 100px;
+            height: 100px;
+            top: 30%;
+            left: 40%;
+            transform: translate(-50%, -50%);
+        }
+
+        .wave:nth-child(1) {
+            animation-delay: 0s;
+        }
+
+        .wave:nth-child(2) {
+            animation-delay: 0.5s;
+        }
+
+        .wave:nth-child(3) {
+            animation-delay: 1s;
+        }
+
+        /* Styling the container */
+        .container {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Main card styling */
+        .main-card {
+            background-color: #0c0d0c;
+            box-shadow: 5px 10px 6px rgba(0, 255, 17);
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            position: relative;
+            margin-top: 2rem;
+        }
+
+        /* Title styling */
+        .title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #00ff22;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        /* Button styling */
+        .mic-button {
+            background-color: #30ff05;
+            color: #fff;
+            font-weight: bold;
+            padding: 0.75rem 2rem;
+            border-radius: 9999px;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .mic-button:hover {
+            transform: scale(1.05);
+        }
+
+        /* Status and response styling */
+        #status {
+            color: #555;
+            margin: 1rem 0;
+        }
+
+        #response {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            width: 100%;
+            min-height: 100px;
+            text-align: left;
+        }
+
+        /* Responsive design */
+        @media screen and (max-width: 768px) {
+            .wave {
+                width: 150px;
+                height: 150px;
+            }
+
+            .main-card {
+                width: 95%;
+                padding: 1rem;
+            }
+
+            .title {
+                font-size: 1.25rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-card">
+            <h1 class="title">KIWI Voice Assistant 🎙️</h1>
+
+            <div class="relative" style="height: 200px;">
+                <div class="wave"></div>
+                <div class="wave"></div>
+                <div class="wave"></div>
+                <button id="startBtn" class="mic-button">
+                    <i class="fas fa-microphone"></i>
+                    Click to Speak
+                </button>
+            </div>
+
+            <div id="status">Status: Ready</div>
+            <div id="response"></div>
+        </div>
+    </div>
+
+    <script>
+        const startBtn = document.getElementById('startBtn');
+        const statusDiv = document.getElementById('status');
+        const responseDiv = document.getElementById('response');
+
+        // Web Speech API setup
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognition = new SpeechRecognition();
+        recognition.lang = 'en-US';
+        recognition.continuous = false;
+
+        startBtn.addEventListener('click', () => {
+            recognition.start();
+            statusDiv.textContent = "Status: Listening...";
+        });
+
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            statusDiv.textContent = "Status: Processing...";
+            responseDiv.innerHTML = `<strong>You:</strong> ${transcript}`;
+
+            fetch('/command', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `command=${encodeURIComponent(transcript)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                responseDiv.innerHTML += `<br><strong>KIWI:</strong> ${data.response}`;
+                statusDiv.textContent = "Status: Response received";
+            });
+        };
+
+        recognition.onerror = (event) => {
+            statusDiv.textContent = `Error: ${event.error}`;
+        };
+
+        recognition.onend = () => {
+            statusDiv.textContent = "Status: Ready";
+        };
+    </script>
+</body>
+</html>
