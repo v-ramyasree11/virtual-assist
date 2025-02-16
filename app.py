@@ -5,12 +5,11 @@ import pywhatkit as pk
 import wikipedia as wiki
 import threading
 import queue
-import os
-import requests
-import json
 import random
 import schedule
 import time
+
+from pyaudio import paFramesPerBufferUnspecified
 
 app = Flask(__name__)
 
@@ -18,17 +17,60 @@ app = Flask(__name__)
 speech_queue = queue.Queue()
 va_name = 'KIWI'
 
-# Configuration (Add your API keys here)
-WEATHER_API_KEY = 'bd5e378503939ddaee76f12ad7a97608'
-NEWS_API_KEY = 'your_newsapi_key'
-
 # Jokes database
 JOKES = [
-    "Why don't scientists trust atoms? Because they make up everything!",
+    "Why don’t skeletons fight each other? They don’t have the guts!",
+    "I told my wife she was drawing her eyebrows too high. She looked surprised.",
+    "Why don’t eggs tell jokes? Because they might crack up!",
     "What do you call fake spaghetti? An impasta!",
+    "I told my computer I needed a break, and now it won’t stop sending me Kit-Kats.",
     "Why did the scarecrow win an award? Because he was outstanding in his field!",
-    "How do you organize a space party? You planet!"
+    "I’m reading a book about anti-gravity. It’s impossible to put down!",
+    "Did you hear about the restaurant on the moon? Great food, no atmosphere!",
+    "What do you get if you cross a snowman and a vampire? Frostbite!",
+    "I’m on a whiskey diet. I’ve lost three days already.",
+    "Why was the math book sad? It had too many problems.",
+    "Why don’t oysters share their pearls? Because they’re shellfish!",
+    "I used to play piano by ear, but now I use my hands.",
+    "Why did the bicycle fall over? It was two-tired.",
+    "I’m terrified of elevators, so I’m taking steps to avoid them.",
+    "Why do cows have hooves instead of feet? Because they lactose!",
+    "What did one ocean say to the other ocean? Nothing, they just waved.",
+    "I once got into a fight with a broken pencil. It was pointless.",
+    "Why don’t skeletons ever use cell phones? They’re always dead to the world.",
+    "I couldn’t figure out how to put my seatbelt on. Then it clicked.",
+    "What do you call a pile of cats? A meow-tain.",
+    "Why do bananas never get lonely? Because they hang in bunches.",
+    "What did one wall say to the other wall? I’ll meet you at the corner.",
+    "Why are frogs so happy? Because they eat whatever bugs them!",
+    "What do you call cheese that isn’t yours? Nacho cheese!",
+    "Why did the tomato turn red? Because it saw the salad dressing!",
+    "I told my wife she was drawing her eyebrows too high. She looked surprised.",
+    "Why did the computer go to the doctor? It had a virus!",
+    "I can’t believe I got fired from the calendar factory. All I did was take a day off!",
+    "What’s orange and sounds like a parrot? A carrot!",
+    "Why did the chicken join a band? Because it had drumsticks!",
+    "Why don’t skeletons ever tell secrets? They don’t have the guts to.",
+    "What did the coffee say to the sugar? You’re sweet!",
+    "Why don’t programmers like nature? It has too many bugs.",
+    "I’m writing a book about reverse psychology. Don’t buy it!",
+    "Why don’t you ever see elephants hiding in trees? Because they’re really good at it.",
+    "What’s the best way to watch a fly fishing tournament? Live stream.",
+    "Why did the golfer bring two pairs of pants? In case he got a hole in one!",
+    "How do cows stay up to date with current events? They read the moos-paper!",
+    "I used to play piano by ear, but now I use my hands.",
+    "What did one plate say to the other plate? Lunch is on me!",
+    "Why don’t you ever see hippos hiding in trees? Because they’re really good at it!",
+    "What do you call an alligator in a vest? An investigator!",
+    "I couldn’t figure out why I was getting strange messages on my phone, but then it dawned on me.",
+    "What’s a skeleton’s least favorite room? The living room.",
+    "I used to be addicted to soap, but I’m clean now.",
+    "What’s brown and sticky? A stick!",
+    "Why do cows wear bells? Because their horns don’t work!",
+    "I told my computer I needed a break, and now it won’t stop sending me Kit-Kats.",
+    "Why don’t scientists trust atoms? Because they make up everything!"
 ]
+
 
 
 # Speech worker thread
@@ -54,31 +96,6 @@ def speech_worker():
 speech_thread = threading.Thread(target=speech_worker)
 speech_thread.start()
 
-
-# Additional Command Handlers
-def get_weather(city):
-    base_url = "http://api.openweathermap.org/data/2.5/weather?"
-    complete_url = f"{base_url}q={city}&appid={WEATHER_API_KEY}&units=metric"
-    response = requests.get(complete_url)
-    data = response.json()
-    if data["cod"] != "404":
-        main = data["main"]
-        weather = data["weather"][0]
-        return f"Current temperature in {city} is {main['temp']}°C with {weather['description']}"
-    return "City not found"
-
-
-def get_news():
-    news_url = f"https://newsapi.org/v2/top-headlines?country=us&apiKey={NEWS_API_KEY}"
-    response = requests.get(news_url)
-    news_data = response.json()
-    articles = news_data["articles"][:3]  # Get top 3 news
-    news = []
-    for article in articles:
-        news.append(f"{article['title']}. Published by {article['source']['name']}")
-    return "Here are the top news headlines: " + ". ".join(news)
-
-
 def set_reminder(reminder_text, minutes):
     def reminder():
         speech_queue.put(f"Reminder: {reminder_text}")
@@ -89,22 +106,6 @@ def set_reminder(reminder_text, minutes):
 
 def tell_joke():
     return random.choice(JOKES)
-
-
-def system_command(command):
-    if 'SHUTDOWN' in command:
-        os.system("shutdown /s /t 1")
-        return "Shutting down system"
-    elif 'RESTART' in command:
-        os.system("shutdown /r /t 1")
-        return "Restarting system"
-    return "System command not recognized"
-
-
-def send_email(receiver, subject, body):
-    # You'll need to configure your email settings
-    # This is a placeholder function
-    return f"Email to {receiver} with subject {subject} sent successfully"
 
 
 @app.route('/')
@@ -139,33 +140,14 @@ def handle_command():
             info = wiki.summary(person, sentences=2)
             response = info
 
-        elif 'WEATHER' in user_command:
-            city = user_command.replace('WEATHER ', '').replace(' IN ', '')
-            response = get_weather(city)
-
-        elif 'NEWS' in user_command:
-            response = get_news()
-
         elif 'REMIND' in user_command:
             parts = user_command.split(' IN ')
-            reminder_text = parts[0].replace('REMIND ME TO ', '')
+            reminder_text = parts[0].replace('REMIND ME ', '')
             minutes = int(parts[1].replace(' MINUTES', ''))
             response = set_reminder(reminder_text, minutes)
 
         elif 'JOKE' in user_command:
             response = tell_joke()
-
-        elif 'SHUTDOWN' in user_command or 'RESTART' in user_command:
-            response = system_command(user_command)
-
-        elif 'E-MAIL' in user_command:
-            # Example command: "EMAIL TO JOHN SUBJECT MEETING BODY LET'S MEET TOMORROW"
-            parts = user_command.split(' SUBJECT ')
-            receiver = parts[0].replace('EMAIL TO ', '')
-            subject_body = parts[1].split(' BODY ')
-            subject = subject_body[0]
-            body = subject_body[1]
-            response = send_email(receiver, subject, body)
 
         elif 'CALCULATE' in user_command:
             # Example: "CALCULATE 125 PLUS 369" or "CALCULATE 45 TIMES 12"
@@ -174,6 +156,7 @@ def handle_command():
 
         elif 'WHO ARE YOU' in user_command:
             response = f'I am {va_name}, your personal voice assistant'
+
 
         else:
             response = 'Sorry, I didn\'t understand that. Please try again.'
@@ -187,13 +170,10 @@ def handle_command():
 
 
 def calculate_expression(expression):
-    expression = expression.lower() \
-        .replace('plus', '+') \
-        .replace('minus', '-') \
-        .replace('times', '*') \
-        .replace('divided by', '/')
+    expression = expression.lower().replace('plus', '+') .replace('minus', '-') .replace('multiples of', '*') .replace('divided by', '/')
     try:
         result = eval(expression)
+
         return f"The result is {result}"
     except:
         return "Could not calculate that expression"
